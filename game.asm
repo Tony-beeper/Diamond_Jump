@@ -50,8 +50,9 @@
 .eqv BottomScreen   0x1000FC00
 .eqv bottomRight  0x1000FFFC		#Bottom right of screen
 
-
-
+.eqv purpleHex	0x800080
+.eqv pinkHex	0xFF4DE1
+.eqv whiteHex	0xFFFFFF
 
 .eqv pixelDown	512 	#next pixel downward
 
@@ -70,6 +71,10 @@
 .eqv charWidth	24
 .eqv CharLength 4096		#The length of the Character
 
+.eqv firePos 16704
+
+.eqv StarPos 16512
+
 .data
 platForms: .word 7168, 10432, 20864	#platform position with offset to base_address
 
@@ -79,10 +84,29 @@ platForms: .word 7168, 10432, 20864	#platform position with offset to base_addre
 
 Start:
 	li $t0, CharInitial
+	la $t3, 16704($t0)
 	li $t5, GravityCounter #set gravity counter to 0 initially
+	la $s1, 16512($t0)
+	add $s4, $zero, $zero	#set score to 0
+	
 GameLoop:
-
+	
+	addi $s4, $s4, 1
 	addi $t1, $zero, 0	#reset movement
+	
+	
+	addi $sp, $sp, -4	#char
+	sw $t0, 0($sp)
+	
+	addi $sp, $sp, -4	#star
+	sw $s1, 0($sp)
+	
+	addi $sp, $sp, -4	#fire
+	sw $t3, 0($sp)
+	
+	jal StarFireCollisionCheck	# return 0 if no, return 1 if star, return 2 if fire
+	lw $s2, 0($sp)
+	addi $sp, $sp, 4
 	
 	#blt $t4, 7168, Next
 	#blt $t4, 7168, Next
@@ -99,9 +123,6 @@ Next:
 	
 	
 	lw $t8, 0($t9)	
-	
-
-	
 	beq $t8, 0, KeyCheckEnds
 	lw $t2, 4($t9) # this assumes $t9 is set to 0xfff0000 from before
 
@@ -144,13 +165,14 @@ Right:
 Down:
 	bne $t2, 0x73, Up
 	addi $t4, $t0, CharLength
-	bge $t4, BottomScreen, ReDraw 	#If the length passes the bottom boundry then stop the ship from moving more down
+	bge $t4, BottomScreen, Restart 	#If the length passes the bottom boundry then stop the char from moving more down
+	
 	
 	
 #collision Check for this downward motion
 	addi $sp, $sp, -4
 
-	sw $t4, 0($sp)	#give the position of the ship to function
+	sw $t4, 0($sp)	#give the position of the char to function
 	jal CheckPlatformCollision	#return 0 if no collision, 1 if there's collision
 	lw $t6, 0($sp)	#t6 stores the result of collided or not
 	addi $sp, $sp, 4
@@ -165,12 +187,26 @@ Down:
 	
 
 Up:
-	bne $t2, 0x77, Restart
+	bne $t2, 0x77, RestartCheck
 	ble $t0, BASE_ADDRESS, ReDraw
+	
+	
+	addi $sp, $sp, -4
+
+	sw $t0, 0($sp)	#give the position of the char to function
+	jal CheckPlatformCollision	#return 0 if no collision, 1 if there's collision
+	lw $t6, 0($sp)	#t6 stores the result of collided or not
+	addi $sp, $sp, 4
+	
+	beq $t6, 1, ReDraw
+	
 	addi $t1, $zero, MoveUp
 	j ReDraw
 	
-Restart:
+RestartCheck:
+	bne $t2, 0x70, ReDraw
+	j Restart
+	
 
 ReDraw:
 	addi $sp, $sp, -4			
@@ -181,21 +217,21 @@ ReDraw:
 
 KeyCheckEnds:
 	#if counter .. then go otherwise go gamedraw
-	
+
 CheckGravity:
-	bne $t5, 25, GameDraw	#check gravity counter
+	bne $t5, 50, GameDraw	#check gravity counter
 	
 #check if collid with platform, if so, don't apply gravity
 	addi $t4, $t0, CharLength	
 	addi $sp, $sp, -4
-	sw $t4, 0($sp)	#give the position of the ship to function
+	sw $t4, 0($sp)	#give the position of the char to function
 	jal CheckPlatformCollision	#return 0 if no collision, 1 if there's collision
 	lw $t6, 0($sp)	#t6 stores the result of collided or not
 	addi $sp, $sp, 4
 	beq $t6, 1, ResetGravity
 	
 	addi $t4, $t0, CharLength	#gravity
-	bge $t4, BottomScreen, ResetGravity 	#If the length passes the bottom boundry then stop the character from moving more down
+	bge $t4, BottomScreen, Restart 	#If the length passes the bottom boundry then stop the character from moving more down
 	addi $t1, $t1, MoveDown
 	
 	addi $sp, $sp, -4
@@ -203,18 +239,264 @@ CheckGravity:
 	jal ClearCharacter	
 	
 	add $t0, $t0, $t1
+	
+
 
 ResetGravity:
 
 	add $t5, $zero, $zero #reset the gravity counter
 	
 GameDraw:
-	addi $sp, $sp, -4
+
+
+	#draw character
+	addi $sp, $sp, -4	#position
 	sw $t0, 0($sp)
+	beq $s2, 0, NoCollisionColor
+	beq $s2, 1, StarColor
+	beq $s2, 2, FireColor
+	
+NoCollisionColor:
+
+	addi $sp, $sp, -4	#position
+	li $s3, whiteHex
+	sw $s3, 0($sp)
+	j ReallyDrawNow
+	
+StarColor:
+	addi $sp, $sp, -4	#position
+	li $s3, purpleHex
+	sw $s3, 0($sp)
+	j ReallyDrawNow
+	
+FireColor:
+	addi $sp, $sp, -4	#position
+	li $s3, pinkHex
+	sw $s3, 0($sp)
+	j ReallyDrawNow
+
+ReallyDrawNow:
 	jal DrawChar
 
+MoveFire:
+	#draw fire
+	bne $t5, 25, MoveStar	#check gravity counter
+	
+	#clean fire
+	addi $sp, $sp, -4
+	sw $t3, 0($sp)
+	jal CleanFire
+	
+	li $v0, 42
+	li $a0, 0
+	li $a1, 28
+	syscall
+	
+	bge $a0, 14, MoveFireLeft
+	
+MoveFireRight:
+	#drawfire
+	addi $t3, $t3, MoveRight
+	
+	addi $sp, $sp, -4
+	sw $t3, 0($sp)
+	jal DrawFire
+	j MoveStar
+		
+MoveFireLeft:
+	
+	addi $t3, $t3, MoveLeft
+	
+	addi $sp, $sp, -4
+	sw $t3, 0($sp)
+	jal DrawFire
+
+MoveStar:
+	#draw fire
+	bne $t5, 12, ReDrawPlatforms	#check gravity counter
+	
+	#clean fire
+	addi $sp, $sp, -4
+	sw $s1, 0($sp)
+	jal CleanFire
+	
+	li $v0, 42
+	li $a0, 0
+	li $a1, 28
+	syscall
+	
+	bge $a0, 14, MoveStarLeft
+	
+MoveStarRight:
+	#drawfire
+	addi $s1, $s1, MoveRight
+	
+	addi $sp, $sp, -4
+	sw $s1, 0($sp)
+	jal DrawStar
+	j ReDrawPlatforms
+	
+MoveStarLeft:
+	
+	addi $s1, $s1, MoveLeft
+	
+	addi $sp, $sp, -4
+	sw $s1, 0($sp)
+	jal DrawStar
+
+
+ReDrawPlatforms:
+	la $t7, platForms	#load address of platform array	
+	add $t9, $zero, $zero
+	li $a3, BASE_ADDRESS	#base position
+	li $a2, 0	#offset
+ReDrawPlatformsLoop:
+	beq $t9, 3, GameContinue
+	
+	lw $t8, 0($t7)
+	addi $sp, $sp, -4
+	add $a2, $a3, $t8
+	sw $a2, 0($sp)
+	jal DrawPlatform
+	
+ReDrawPlatformsAdvance:
+	addi $t9, $t9, 1
+	addi $t7, $t7, 4
+	j ReDrawPlatformsLoop
+	
 GameContinue:
+
+	
 	j GameLoop
+	
+######################### Fucntion to check for collision ###############################
+
+StarFireCollisionCheck:
+	lw $a2, 0($sp)	#fire
+	addi $sp, $sp, 4
+
+	lw $a1, 0($sp)	#star
+	addi $sp, $sp, 4
+	
+	lw $a0, 0($sp)	#char
+	addi $sp, $sp, 4
+	
+	addi $a0, $a0, 1032	#center of char
+	
+	
+	
+StarCollisionCheckLoop:
+
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 492
+	
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 492
+	
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 492
+	
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 4
+	beq $a0, $a1, StarCollided
+	addi $a1, $a1, 492
+	
+	
+FireCollisionCheckLoop:
+
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 492
+	
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 492
+	
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 492
+	
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 4
+	beq $a0, $a2, FireCollided
+	addi $a2, $a2, 492
+	j StarFireCollisionCheckEnd
+
+StarCollided:
+	addi $sp, $sp, -4
+	addi $a0, $zero, 1
+	sw $a0, 0($sp)
+	jr $ra
+FireCollided:
+
+	addi $sp, $sp, -4
+	addi $a0, $zero, 2
+	sw $a0, 0($sp)
+	jr $ra
+	
+StarFireCollisionCheckEnd:
+
+	addi $sp, $sp, -4
+	addi $a0, $zero, 0
+	sw $a0, 0($sp)
+	jr $ra
 
 ##################### function check platform collision ####################
 CheckPlatformCollision:
@@ -232,40 +514,40 @@ CheckPlatformLoop:
 	lw $t8, 0($t7)
 	add $a2, $a3, $t8
 	
-First_Plat1:
+Plat1:
 
-	bge $a0, $a2, First_Plat_Next1		#less than
-	j First_Plat2
-First_Plat_Next1:
+	bge $a0, $a2, Plat_Next1		#less than
+	j Plat2
+Plat_Next1:
 	addi $a2, $a2, 64
 	ble $a0, $a2, CollisionHappened
 	
-First_Plat2:
+Plat2:
 	addi $t8, $t8, 512
 	add $a2, $a3, $t8
-	bge $a0, $a2, First_Plat_Next2		#less than
-	j First_Plat3
+	bge $a0, $a2, Plat_Next2		#less than
+	j Plat3
 	
-First_Plat_Next2:
+Plat_Next2:
 	addi $a2, $a2, 64
 	ble $a0, $a2, CollisionHappened
 	
-First_Plat3:
+Plat3:
 	addi $t8, $t8, 512
 	add $a2, $a3, $t8
-	bge $a0, $a2, First_Plat_Next3		#less than
-	j First_Plat4
-First_Plat_Next3:
+	bge $a0, $a2, Plat_Next3		#less than
+	j Plat4
+Plat_Next3:
 	addi $a2, $a2, 64
 	ble $a0, $a2, CollisionHappened
-	
-First_Plat4:
+
+Plat4:
 	addi $t8, $t8, 512
 	add $a2, $a3, $t8
-	bge $a0, $a2, First_Plat_Next4		#less than
+	bge $a0, $a2, Plat_Next4		#less than
 	j CollisionLoopCheck
 	
-First_Plat_Next4:
+Plat_Next4:
 	addi $a2, $a2, 64
 	ble $a0, $a2, CollisionHappened
 	
@@ -287,6 +569,40 @@ CollisionCheckEnds:
 	
 ##################### function to clear character before redraw ####################
 ClearCharacter:
+	lw $a0, 0($sp) 		# $a0 stores the base address for display
+	addi $sp, $sp, 4
+	
+	li $a1, 0x000000  	# $a2 stores the black colour code
+	
+	#Note each "group" of units represents one row in the Bitmap Display, groups are separated by spaces
+	#Note that everything is being turned to black so it is erased
+
+
+	sw $a1, 8($a0)		#Red outline of the top wing
+	
+	sw $a1, 516($a0)		#Red outline of the top wing
+	sw $a1, 520($a0)		#Red outline of the top wing
+	sw $a1, 524($a0)		#Red outline of the top wing
+
+	
+	sw $a1, 1024($a0)		#Red outline of the top wing
+	sw $a1, 1028($a0)		#Red outline of the top wing
+	sw $a1, 1032($a0)		#Red outline of the top wing
+	sw $a1, 1036($a0)		#Red outline of the top wing
+	sw $a1, 1040($a0)		#Red outline of the top wing
+
+	sw $a1, 1540($a0)		#Red outline of the top wing
+	sw $a1, 1544($a0)		#Red outline of the top wing
+	sw $a1, 1548($a0)		#Red outline of the top wing
+
+	sw $a1, 2056($a0)		#Red outline of the top wing
+		
+		
+
+	jr $ra
+	
+##################### function to clear character before redraw ####################
+CleanFire:
 	lw $a0, 0($sp) 		# $a0 stores the base address for display
 	addi $sp, $sp, 4
 
@@ -361,15 +677,14 @@ DrawPlatform:
 	sw $a2, 576($a0)		#Red outline of the top wing
 	
 	jr $ra
-		
-
+	
+########################### function to draw the character ##############################
 DrawChar: 
+	lw $a1, 0($sp)
+	#li $a1, purpleHex
+	addi $sp, $sp, 4
 	lw $a0, 0($sp) 		# $a0 stores the base address for display
 	addi $sp, $sp, 4
-
-	li $a1, 0xFFFFFF  	# $a1 stores the white colour code
-	li $a2, 0xa4161a  	# $a2 stores the red colour code
-	#Note each "group" of units represents one row in the Bitmap Display, groups are separated by spaces
 			
 	sw $a1, 8($a0)		#Red outline of the top wing
 	
@@ -392,7 +707,65 @@ DrawChar:
 
 	jr $ra
 	
+########################### function to draw the fire ##############################
+DrawFire: 
+	lw $a0, 0($sp) 		# $a0 stores the base address for display
+	addi $sp, $sp, 4
 
+	li $a1, 0xFFFFFF  	# $a1 stores the white colour code
+	li $a2, 0xa4161a  	# $a2 stores the red colour code
+	#Note each "group" of units represents one row in the Bitmap Display, groups are separated by spaces
+			
+	sw $a2, 8($a0)		#Red outline of the top wing
+	
+	sw $a2, 516($a0)		#Red outline of the top wing
+	sw $a2, 520($a0)		#Red outline of the top wing
+	sw $a2, 524($a0)		#Red outline of the top wing
+
+	
+	sw $a2, 1024($a0)		#Red outline of the top wing
+	sw $a2, 1028($a0)		#Red outline of the top wing
+	sw $a2, 1032($a0)		#Red outline of the top wing
+	sw $a2, 1036($a0)		#Red outline of the top wing
+	sw $a2, 1040($a0)		#Red outline of the top wing
+
+	sw $a2, 1540($a0)		#Red outline of the top wing
+	sw $a2, 1544($a0)		#Red outline of the top wing
+	sw $a2, 1548($a0)		#Red outline of the top wing
+
+	sw $a2, 2056($a0)		#Red outline of the top wing
+
+	jr $ra
+
+########################### function to draw the star ##############################
+DrawStar: 
+	lw $a0, 0($sp) 		# $a0 stores the base address for display
+	addi $sp, $sp, 4
+
+
+	li $a2, 0xFFFF00  	# $a2 stores the red colour code
+	#Note each "group" of units represents one row in the Bitmap Display, groups are separated by spaces
+			
+	sw $a2, 8($a0)		#Red outline of the top wing
+	
+	sw $a2, 516($a0)		#Red outline of the top wing
+	sw $a2, 520($a0)		#Red outline of the top wing
+	sw $a2, 524($a0)		#Red outline of the top wing
+
+	
+	sw $a2, 1024($a0)		#Red outline of the top wing
+	sw $a2, 1028($a0)		#Red outline of the top wing
+	sw $a2, 1032($a0)		#Red outline of the top wing
+	sw $a2, 1036($a0)		#Red outline of the top wing
+	sw $a2, 1040($a0)		#Red outline of the top wing
+
+	sw $a2, 1540($a0)		#Red outline of the top wing
+	sw $a2, 1544($a0)		#Red outline of the top wing
+	sw $a2, 1548($a0)		#Red outline of the top wing
+
+	sw $a2, 2056($a0)		#Red outline of the top wing
+
+	jr $ra
 ########################################### check left function ####################################
 
 CheckLeft:
@@ -419,7 +792,35 @@ CheckLeftExit:
 	sw $a0, 0($sp)
 	
 	jr $ra
+########################################### Restart function to restart the whole game ####################################
+Restart:
+	
+ClearScreen:
+	li $a0, BASE_ADDRESS
+	li $a2, 0	#counter
+	li $a1, 0x000000	#hex for black
+	
+ClearScreenLoop:
+	beq $a2, 32768, ClearScreenEnds
+	
+	sw $a1, 0($a0) #clear
+ClearScreenLoopAdvance:
 
+	addi $a0, $a0, 4
+	addi $a2, $a2, 4
+	j ClearScreenLoop
+	
+ClearScreenEnds:
+	li $v0, 32
+	li $a0, 3000 # Wait one second (1000 milliseconds)
+	syscall
+	
+	
+	# print out the score
+	
+	j main
+	
+	
 ########################################### check right function ####################################
 	
 CheckRight:
@@ -455,10 +856,10 @@ CheckRightExit:
 main:
 
 	li $t1, BASE_ADDRESS # $t0 stores the base address for display
-	li $t3, 0x00ff00   # $t2 stores the green colour code 
+	#li $t3, 0x00ff00   # $t2 stores the green colour code 
 	li $t2, 0x100097FC
-	
-	sw $t3, 0($t2)
+	li $t4, 0xFFFF00	#yellow
+	#sw $t3, 0($t2)
 
 
 	la $a0, 7168($t1) # draw the initial platform
@@ -478,12 +879,30 @@ main:
 	sw $a0, 0($sp)
 	jal DrawPlatform
 	
-	
-	la $a0, 1024($t1)
-	lw $t0, 1024($t1)
+	la $a0, 16704($t1) # draw the initial Fire
 	addi $sp, $sp, -4
 	sw $a0, 0($sp)
-	jal DrawChar
+	jal DrawFire
+
+	la $a0, 16512($t1) # draw the initial Star
+	addi $sp, $sp, -4
+	sw $a0, 0($sp)
+	jal DrawStar
+	
+	
+
+	
+	#la $a0, 1024($t1)
+	#lw $t0, 1024($t1)
+	
+	#addi $sp, $sp, -4
+	#sw $a0, 0($sp)
+	
+	#addi $sp, $sp, -4
+	#li $t1, whiteHex
+	#sw $t1, 0($sp)
+	
+	#jal DrawChar
 
 	j Start
 
