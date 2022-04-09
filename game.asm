@@ -89,6 +89,8 @@ Start:
 	la $s1, 16512($t0)
 	add $s4, $zero, $zero	#set score to 0
 	
+
+	
 GameLoop:
 	
 	addi $s4, $s4, 1
@@ -104,9 +106,10 @@ GameLoop:
 	addi $sp, $sp, -4	#fire
 	sw $t3, 0($sp)
 	
-	jal StarFireCollisionCheck	# return 0 if no, return 1 if star, return 2 if fire
+	jal StarFireCollisionCheck	# return 0 if no, return 1 if star, return 2 if fire, 3 if heart winnning
 	lw $s2, 0($sp)
 	addi $sp, $sp, 4
+	beq $s2, 3, GameWin
 	
 	#blt $t4, 7168, Next
 	#blt $t4, 7168, Next
@@ -165,7 +168,7 @@ Right:
 Down:
 	bne $t2, 0x73, Up
 	addi $t4, $t0, CharLength
-	bge $t4, BottomScreen, Restart 	#If the length passes the bottom boundry then stop the char from moving more down
+	bge $t4, BottomScreen, GameOver 	#If the length passes the bottom boundry then stop the char from moving more down
 	
 	
 	
@@ -231,7 +234,7 @@ CheckGravity:
 	beq $t6, 1, ResetGravity
 	
 	addi $t4, $t0, CharLength	#gravity
-	bge $t4, BottomScreen, Restart 	#If the length passes the bottom boundry then stop the character from moving more down
+	bge $t4, BottomScreen, GameOver 	#If the length passes the bottom boundry then stop the character from moving more down
 	addi $t1, $t1, MoveDown
 	
 	addi $sp, $sp, -4
@@ -369,6 +372,29 @@ GameContinue:
 	
 	j GameLoop
 	
+######################### Fucntion to play when game over ###############################
+	
+GameOver:
+	###print the GameOver image #############
+	
+	
+	#li $v0, 32
+	
+	#li $a0, 4000 # Sleep for 4 seconds before restart
+	#syscall
+	
+	j Restart
+	
+######################### Fucntion to play when win ###############################
+GameWin:
+	###print the winning image #############
+	
+	#li $v0, 32
+	
+	#li $a0, 4000 # Sleep for 4 seconds before restart
+	#syscall
+	
+	j Restart
 ######################### Fucntion to check for collision ###############################
 
 StarFireCollisionCheck:
@@ -382,6 +408,57 @@ StarFireCollisionCheck:
 	addi $sp, $sp, 4
 	
 	addi $a0, $a0, 1032	#center of char
+	
+	li $a3, BASE_ADDRESS
+	la $a3, 14256($a3)
+	
+HeartCollisionCheckLoop:
+
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 492
+	
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 492
+	
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 492
+	
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 4
+	beq $a0, $a3, HeartCollided
+	addi $a3, $a3, 492
+	
+		
 	
 	
 	
@@ -478,7 +555,13 @@ FireCollisionCheckLoop:
 	beq $a0, $a2, FireCollided
 	addi $a2, $a2, 492
 	j StarFireCollisionCheckEnd
-
+	
+	
+HeartCollided:
+	addi $sp, $sp, -4
+	addi $a0, $zero, 3
+	sw $a0, 0($sp)
+	jr $ra
 StarCollided:
 	addi $sp, $sp, -4
 	addi $a0, $zero, 1
@@ -634,8 +717,27 @@ CleanFire:
 		
 
 	jr $ra
-##################### functions to draw character and platform #####################
+##################### functions to draw Heart for winning #####################
+DrawHeart:	
+	lw $a0, 0($sp) 		# $a0 stores the base address for display
+	addi $sp, $sp, 4
 
+	li $a2, 0xCCFF88	# store red color $a2
+	
+	sw $a2, 4($a0)
+	sw $a2, 12($a0)
+	sw $a2, 512($a0)
+	sw $a2, 516($a0)
+	sw $a2, 520($a0)
+	sw $a2, 524($a0)
+	sw $a2, 528($a0)
+	sw $a2, 1028($a0)
+	sw $a2, 1032($a0)
+	sw $a2, 1036($a0)
+	sw $a2, 1544($a0)
+	
+	jr $ra
+##################### functions to draw character and platform #####################
 DrawPlatform:
 	lw $a0, 0($sp) 		# $a0 stores the base address for display
 	addi $sp, $sp, 4
@@ -866,6 +968,11 @@ main:
 	addi $sp, $sp, -4
 	sw $a0, 0($sp)
 	jal DrawPlatform
+	
+	la $a0, 14256($t1) # draw the Heart for winning
+	addi $sp, $sp, -4
+	sw $a0, 0($sp)
+	jal DrawHeart
 
 
 	la $a0, 10432($t1) # draw the initial platform
