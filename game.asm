@@ -25,16 +25,18 @@
 # 5. G
 # 6. K
 # Link to video demonstration for final submission:
-# - (insert YouTube / MyMedia / other URL here). Make sure we can view it!
+# - https://youtu.be/SsXd4iv47RM
 #
 # Are you OK with us sharing the video with people outside course staff?
 # - no
 #
 # Any additional information that the TA needs to know:
-# - no
-#
-#####################################################################
+# - Change the MoveRight Speed to 32 for faster testing of winning, but player is expected to play at 4 in order for edge checking to work
+# - Compilation might be slow due to many lines of code are printing the winning and gameover screen
 
+
+#####################################################################
+.eqv MoveRight 4 	#change this to make it test faster
 #
 .eqv BASE_ADDRESS 0x10008000
 
@@ -51,7 +53,7 @@
 .eqv pixelDown	512 	#next pixel downward
 
 .eqv MoveLeft	-4
-.eqv MoveRight	32
+ 	
 .eqv MoveUp	-4096
 .eqv MoveDown	2048
 
@@ -106,7 +108,8 @@ ChargeJump:
 	j GameLoopCont
 UnChargeJump:
 	li $s5, 0	#regular jump energy
-	
+	#li $s5, 1	#regular jump energy
+	#li $s6, 1
 GameLoopCont:
 	addi $t1, $zero, 0	#reset movement
 	
