@@ -66,7 +66,7 @@
 
 .eqv GravityCounter 0
 
-.eqv CharInitial 0x10008000
+.eqv CharInitial 0x1000801C
 
 .eqv charWidth	24
 .eqv CharLength 4096		#The length of the Character
@@ -77,19 +77,24 @@
 
 .data
 platForms: .word 7168, 10432, 20864	#platform position with offset to base_address
-
+Level: .word 0
 .text
 .globl main
 
 
 Start:
+	li $t1, BASE_ADDRESS # $t0 stores the base address for display
+	la $a0, 14256($t1) # draw the Heart for winning
+	addi $sp, $sp, -4
+	sw $a0, 0($sp)
+	jal DrawHeart
+	
 	li $t0, CharInitial
 	la $t3, 16704($t0)
 	li $t5, GravityCounter #set gravity counter to 0 initially
 	la $s1, 16512($t0)
 	add $s4, $zero, $zero	#set score to 0
 	
-
 	
 GameLoop:
 	
@@ -316,7 +321,7 @@ MoveFireLeft:
 
 MoveStar:
 	#draw fire
-	bne $t5, 12, ReDrawPlatforms	#check gravity counter
+	bne $t5, 12, ClearPlatforms	#check gravity counter
 	
 	#clean fire
 	addi $sp, $sp, -4
@@ -337,7 +342,7 @@ MoveStarRight:
 	addi $sp, $sp, -4
 	sw $s1, 0($sp)
 	jal DrawStar
-	j ReDrawPlatforms
+	j ClearPlatforms
 	
 MoveStarLeft:
 	
@@ -346,8 +351,64 @@ MoveStarLeft:
 	addi $sp, $sp, -4
 	sw $s1, 0($sp)
 	jal DrawStar
+	
+##to clean plat before redraw
+ClearPlatforms:
+	la $t7, platForms	#load address of platform array	
+	add $t9, $zero, $zero
+	li $a3, BASE_ADDRESS	#base position
+	li $a2, 0	#offset
+ClearPlatformsLoop:
+	beq $t9, 3, MovePlatforms
+	
+	lw $t8, 0($t7)
+	addi $sp, $sp, -4
+	add $a2, $a3, $t8
+	sw $a2, 0($sp)
+	jal ClearPlatform
+	
+ClearPlatformsAdvance:
+	addi $t9, $t9, 1
+	addi $t7, $t7, 4
+	j ClearPlatformsLoop
 
+### randomize platform movement ######
+MovePlatforms:
+	bne $t5, 48, ReDrawPlatforms
+	li $v0, 42
+	li $a0, 0
+	li $a1, 28
+	
+	la $t7, platForms	#load address of platform array	
+	add $t9, $zero, $zero
+	
+	syscall
+	bge $a0, 14, MovePlatformsLeft
+	
+	
+MovePlatformsRight:
+	
+MovePlatformsRightLoop:
+	beq $t9, 3, ReDrawPlatforms
+	lw $t8, 0($t7)
+	add $t8, $t8, 4
+	sw $t8, 0($t7)
+	addi $t9, $t9, 1
+	addi $t7, $t7, 4
+	j MovePlatformsRightLoop
+	
+MovePlatformsLeft:
 
+MovePlatformsLeftLoop:
+	beq $t9, 3, ReDrawPlatforms
+	lw $t8, 0($t7)
+	add $t8, $t8, -4
+	sw $t8, 0($t7)
+	addi $t9, $t9, 1
+	addi $t7, $t7, 4
+	j MovePlatformsLeftLoop
+
+##to redraw
 ReDrawPlatforms:
 	la $t7, platForms	#load address of platform array	
 	add $t9, $zero, $zero
@@ -371,7 +432,7 @@ GameContinue:
 
 	
 	j GameLoop
-	
+
 ######################### Fucntion to play when game over ###############################
 	
 GameOver:
@@ -722,7 +783,7 @@ DrawHeart:
 	lw $a0, 0($sp) 		# $a0 stores the base address for display
 	addi $sp, $sp, 4
 
-	li $a2, 0xCCFF88	# store red color $a2
+	li $a2, 0xFFC0CB	# store red color $a2
 	
 	sw $a2, 4($a0)
 	sw $a2, 12($a0)
@@ -737,7 +798,52 @@ DrawHeart:
 	sw $a2, 1544($a0)
 	
 	jr $ra
+
+########### function to clear one platform ####################
+ClearPlatform:
+	lw $a0, 0($sp) 		# $a0 stores the base address for display
+	addi $sp, $sp, 4
+
+	li $a2, 0x000000  	# store red color $a2
+	
+	sw $a2, 4($a0)		#Red outline of the top wing
+	sw $a2, 8($a0)		#Red outline of the top wing
+	sw $a2, 12($a0)		#Red outline of the top wing
+	sw $a2, 16($a0)		#Red outline of the top wing
+	sw $a2, 20($a0)		#Red outline of the top wing
+	sw $a2, 24($a0)		#Red outline of the top wing
+	sw $a2, 28($a0)		#Red outline of the top wing
+	sw $a2, 32($a0)		#Red outline of the top wing
+	sw $a2, 36($a0)		#Red outline of the top wing
+	sw $a2, 40($a0)		#Red outline of the top wing
+	sw $a2, 44($a0)		#Red outline of the top wing
+	sw $a2, 48($a0)		#Red outline of the top wing
+	sw $a2, 52($a0)		#Red outline of the top wing
+	sw $a2, 56($a0)		#Red outline of the top wing
+	sw $a2, 60($a0)		#Red outline of the top wing
+	sw $a2, 64($a0)		#Red outline of the top wing
+
+	sw $a2, 516($a0)		#Red outline of the top wing
+	sw $a2, 520($a0)		#Red outline of the top wing
+	sw $a2, 524($a0)		#Red outline of the top wing
+	sw $a2, 528($a0)		#Red outline of the top wing
+	sw $a2, 532($a0)		#Red outline of the top wing
+	sw $a2, 536($a0)		#Red outline of the top wing
+	sw $a2, 540($a0)		#Red outline of the top wing
+	sw $a2, 544($a0)		#Red outline of the top wing
+	sw $a2, 548($a0)		#Red outline of the top wing
+	sw $a2, 552($a0)		#Red outline of the top wing
+	sw $a2, 556($a0)		#Red outline of the top wing
+	sw $a2, 560($a0)		#Red outline of the top wing
+	sw $a2, 564($a0)		#Red outline of the top wing
+	sw $a2, 568($a0)		#Red outline of the top wing
+	sw $a2, 572($a0)		#Red outline of the top wing
+	sw $a2, 576($a0)		#Red outline of the top wing
+	
+	jr $ra
+
 ##################### functions to draw character and platform #####################
+
 DrawPlatform:
 	lw $a0, 0($sp) 		# $a0 stores the base address for display
 	addi $sp, $sp, 4
@@ -956,60 +1062,10 @@ CheckRightExit:
 ############################################ ####################################
 
 main:
-
-	li $t1, BASE_ADDRESS # $t0 stores the base address for display
-	#li $t3, 0x00ff00   # $t2 stores the green colour code 
-	li $t2, 0x100097FC
-	li $t4, 0xFFFF00	#yellow
-	#sw $t3, 0($t2)
-
-
-	la $a0, 7168($t1) # draw the initial platform
-	addi $sp, $sp, -4
-	sw $a0, 0($sp)
-	jal DrawPlatform
-	
-	la $a0, 14256($t1) # draw the Heart for winning
-	addi $sp, $sp, -4
-	sw $a0, 0($sp)
-	jal DrawHeart
-
-
-	la $a0, 10432($t1) # draw the initial platform
-	addi $sp, $sp, -4
-	sw $a0, 0($sp)
-	jal DrawPlatform
-	
-
-	la $a0, 20864($t1) # draw the initial platform
-	addi $sp, $sp, -4
-	sw $a0, 0($sp)
-	jal DrawPlatform
-	
-	la $a0, 16704($t1) # draw the initial Fire
-	addi $sp, $sp, -4
-	sw $a0, 0($sp)
-	jal DrawFire
-
-	la $a0, 16512($t1) # draw the initial Star
-	addi $sp, $sp, -4
-	sw $a0, 0($sp)
-	jal DrawStar
+	la $t1, Level
+	sw $zero, 0($t1)
 	
 	
-
-	
-	#la $a0, 1024($t1)
-	#lw $t0, 1024($t1)
-	
-	#addi $sp, $sp, -4
-	#sw $a0, 0($sp)
-	
-	#addi $sp, $sp, -4
-	#li $t1, whiteHex
-	#sw $t1, 0($sp)
-	
-	#jal DrawChar
 
 	j Start
 
