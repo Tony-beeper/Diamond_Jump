@@ -10,5 +10,5 @@ Turn on Bitmap display and keyboard with required settings indicated on the top 
 
 This is the final project in which worth 17% of the course grade. 
 
-![alt text](https://imgur.com/a/lioN5i3)
+![alt text](https://github.com/Tony-beeper/Mips_Assembly_Project_CSCB58/blob/main/game%20img.png)
 
